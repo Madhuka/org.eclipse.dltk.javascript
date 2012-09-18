@@ -21,12 +21,17 @@ public interface IRElement {
 
 	String getName();
 
-	IRType getType();
-
 	ReferenceLocation getLocation();
 
 	Set<IProblemCategory> getSuppressedWarnings();
 
 	boolean isSuppressed(IProblemIdentifier problemIdentifier);
+
+	boolean isDeprecated();
+
+	/**
+	 * Returns the declaration object used to construct this "runtime" element.
+	 */
+	Object getSource();
 
 }

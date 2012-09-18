@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 NumberFour AG
+ * Copyright (c) 2012 NumberFour AG
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -11,14 +11,14 @@
  *******************************************************************************/
 package org.eclipse.dltk.javascript.typeinfo;
 
-import org.eclipse.dltk.javascript.typeinfo.model.Visibility;
+import java.util.List;
 
-public interface IRMember extends IRElement {
+public interface IRTypeDeclaration extends IRElement {
 
-	IRType getType();
+	IRTypeDeclaration getSuperType();
 
-	Visibility getVisibility();
+	List<IRTypeDeclaration> getTraits();
 
-	IRTypeDeclaration getDeclaringType();
+	List<IRMember> getMembers();
 
 }

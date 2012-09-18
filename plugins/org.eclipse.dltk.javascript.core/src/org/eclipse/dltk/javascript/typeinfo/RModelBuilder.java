@@ -20,9 +20,11 @@ import org.eclipse.core.runtime.Assert;
 import org.eclipse.dltk.compiler.problem.IProblemCategory;
 import org.eclipse.dltk.compiler.problem.IProblemIdentifier;
 import org.eclipse.dltk.javascript.typeinference.ReferenceLocation;
+import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IMember;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IMethod;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IParameter;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IVariable;
+import org.eclipse.dltk.javascript.typeinfo.model.Element;
 import org.eclipse.dltk.javascript.typeinfo.model.Parameter;
 import org.eclipse.dltk.javascript.typeinfo.model.ParameterKind;
 import org.eclipse.dltk.javascript.typeinfo.model.Visibility;
@@ -34,14 +36,18 @@ public class RModelBuilder {
 		private final String name;
 		protected final IRType type;
 		private final ReferenceLocation location;
+		// nullable
 		private final Set<IProblemCategory> suppressedWarnings;
+		// nullable
+		private final Object source;
 
 		public RElement(String name, IRType type, ReferenceLocation location,
-				Set<IProblemCategory> suppressedWarnings) {
+				Set<IProblemCategory> suppressedWarnings, Object source) {
 			this.name = name;
 			this.type = type;
 			this.location = location;
 			this.suppressedWarnings = suppressedWarnings;
+			this.source = source;
 		}
 
 		public String getName() {
@@ -72,26 +78,41 @@ public class RModelBuilder {
 			return false;
 		}
 
+		public boolean isDeprecated() {
+			if (source instanceof IMember) {
+				return ((IMember) source).isDeprecated();
+			} else if (source instanceof Element) {
+				return ((Element) source).isDeprecated();
+			} else {
+				return false;
+			}
+		}
+
+		public Object getSource() {
+			return source;
+		}
+
 	}
 
 	private static class RMember extends RElement implements IRMember {
-		final boolean _deprecated;
 		final Visibility visibility;
+		final IRTypeDeclaration typeDeclaration;
 
 		public RMember(String name, IRType type, ReferenceLocation location,
-				Set<IProblemCategory> suppressedWarnings, boolean _deprecated,
-				Visibility visibility) {
-			super(name, type, location, suppressedWarnings);
-			this._deprecated = _deprecated;
+				Set<IProblemCategory> suppressedWarnings,
+				Visibility visibility, Object source,
+				IRTypeDeclaration typeDeclaration) {
+			super(name, type, location, suppressedWarnings, source);
 			this.visibility = visibility;
-		}
-
-		public boolean isDeprecated() {
-			return _deprecated;
+			this.typeDeclaration = typeDeclaration;
 		}
 
 		public Visibility getVisibility() {
 			return visibility;
+		}
+
+		public IRTypeDeclaration getDeclaringType() {
+			return typeDeclaration;
 		}
 	}
 
@@ -101,11 +122,11 @@ public class RModelBuilder {
 		final List<IRParameter> parameters;
 
 		public RMethod(String name, IRType type, ReferenceLocation location,
-				Set<IProblemCategory> suppressedWarnings, boolean _deprecated,
+				Set<IProblemCategory> suppressedWarnings,
 				Visibility visibility, boolean _constructor,
-				List<IRParameter> parameters) {
-			super(name, type, location, suppressedWarnings, _deprecated,
-					visibility);
+				List<IRParameter> parameters, Object source) {
+			super(name, type, location, suppressedWarnings, visibility, source,
+					null);
 			this._constructor = _constructor;
 			this.parameters = parameters;
 		}
@@ -205,10 +226,10 @@ public class RModelBuilder {
 	private static class RVariable extends RMember implements IRVariable {
 
 		public RVariable(String name, IRType type, ReferenceLocation location,
-				Set<IProblemCategory> suppressedWarnings, boolean _deprecated,
-				Visibility visibility) {
-			super(name, type, location, suppressedWarnings, _deprecated,
-					visibility);
+				Set<IProblemCategory> suppressedWarnings,
+				Visibility visibility, Object source) {
+			super(name, type, location, suppressedWarnings, visibility, source,
+					null);
 		}
 
 	}
@@ -216,16 +237,16 @@ public class RModelBuilder {
 	public static IRMethod create(ITypeSystem context, IMethod method) {
 		return new RMethod(method.getName(), RTypes.create(context,
 				method.getType()), method.getLocation(),
-				method.getSuppressedWarnings(), method.isDeprecated(),
-				method.getVisibility(), method.isConstructor(), convertParams0(
-						context, method.getParameters()));
+				method.getSuppressedWarnings(), method.getVisibility(),
+				method.isConstructor(), convertParams0(context,
+						method.getParameters()), method);
 	}
 
 	public static IRVariable create(ITypeSystem context, IVariable variable) {
 		return new RVariable(variable.getName(), RTypes.create(context,
 				variable.getType()), variable.getLocation(),
-				variable.getSuppressedWarnings(), variable.isDeprecated(),
-				variable.getVisibility());
+				variable.getSuppressedWarnings(), variable.getVisibility(),
+				variable);
 	}
 
 	public static List<IRParameter> convert(ITypeSystem context,
