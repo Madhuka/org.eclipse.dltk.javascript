@@ -23,7 +23,6 @@ import org.eclipse.dltk.javascript.typeinfo.IRType;
 import org.eclipse.dltk.javascript.typeinfo.ITypeSystem;
 import org.eclipse.dltk.javascript.typeinfo.MemberPredicate;
 import org.eclipse.dltk.javascript.typeinfo.MetaType;
-import org.eclipse.dltk.javascript.typeinfo.RSimpleType;
 import org.eclipse.dltk.javascript.typeinfo.TypeUtil;
 import org.eclipse.dltk.javascript.typeinfo.model.Constructor;
 import org.eclipse.dltk.javascript.typeinfo.model.Member;
@@ -644,7 +643,7 @@ public class TypeImpl extends ElementImpl implements Type {
 		if (metaType != null) {
 			return metaType.toRType(typeSystem, this);
 		} else {
-			return new RSimpleType(typeSystem, this);
+			return DefaultMetaType.DEFAULT.toRType(typeSystem, this);
 		}
 	}
 

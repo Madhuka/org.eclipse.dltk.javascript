@@ -167,6 +167,11 @@ public class RTypes {
 		return new RMapType(keyType, valueType);
 	}
 
+	public static IRMapType mapOf(ITypeSystem typeSystem, final IRType keyType,
+			final IRType valueType) {
+		return new RMapType(typeSystem, keyType, valueType);
+	}
+
 	public static IRType recordType(ITypeSystem typeSystem,
 			Collection<Member> members) {
 		return new RRecordType(typeSystem, members);

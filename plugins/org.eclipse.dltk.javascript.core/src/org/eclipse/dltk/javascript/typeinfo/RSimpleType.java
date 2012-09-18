@@ -19,7 +19,7 @@ public class RSimpleType extends RType implements IRSimpleType {
 
 	private final Type type;
 
-	public RSimpleType(ITypeSystem typeSystem, Type type) {
+	protected RSimpleType(ITypeSystem typeSystem, Type type) {
 		super(typeSystem);
 		assert type != null;
 		this.type = type;
@@ -27,7 +27,7 @@ public class RSimpleType extends RType implements IRSimpleType {
 			checkType(type);
 	}
 
-	public RSimpleType(Type type) {
+	protected RSimpleType(Type type) {
 		assert type != null;
 		this.type = type;
 		if (DEBUG)

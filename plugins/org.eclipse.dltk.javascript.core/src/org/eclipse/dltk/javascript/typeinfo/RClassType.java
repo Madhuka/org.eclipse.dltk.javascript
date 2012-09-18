@@ -20,7 +20,15 @@ public class RClassType extends RType implements IRClassType {
 
 	protected final Type type;
 
-	public RClassType(Type type) {
+	protected RClassType(ITypeSystem typeSystem, Type type) {
+		super(typeSystem);
+		this.type = type;
+		if (DEBUG)
+			if (type != null)
+				checkType(type);
+	}
+
+	protected RClassType(Type type) {
 		this.type = type;
 		if (DEBUG)
 			if (type != null)
