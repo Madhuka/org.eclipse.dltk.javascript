@@ -34,43 +34,30 @@ import org.eclipse.dltk.javascript.typeinfo.AttributeKey;
 import org.eclipse.dltk.javascript.typeinfo.IElementResolver;
 import org.eclipse.dltk.javascript.typeinfo.IMemberEvaluator;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder;
-import org.eclipse.dltk.javascript.typeinfo.IRSimpleType;
-import org.eclipse.dltk.javascript.typeinfo.IRType;
 import org.eclipse.dltk.javascript.typeinfo.ITypeProvider;
 import org.eclipse.dltk.javascript.typeinfo.ITypeSystem;
-import org.eclipse.dltk.javascript.typeinfo.OriginReference;
 import org.eclipse.dltk.javascript.typeinfo.RTypes;
 import org.eclipse.dltk.javascript.typeinfo.ReferenceSource;
 import org.eclipse.dltk.javascript.typeinfo.TypeInfoManager;
 import org.eclipse.dltk.javascript.typeinfo.TypeMode;
 import org.eclipse.dltk.javascript.typeinfo.TypeUtil;
-import org.eclipse.dltk.javascript.typeinfo.model.GenericType;
 import org.eclipse.dltk.javascript.typeinfo.model.Member;
 import org.eclipse.dltk.javascript.typeinfo.model.Property;
 import org.eclipse.dltk.javascript.typeinfo.model.SimpleType;
 import org.eclipse.dltk.javascript.typeinfo.model.Type;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeInfoModelFactory;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeInfoModelLoader;
-import org.eclipse.dltk.javascript.typeinfo.model.TypeInfoModelPackage;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeKind;
-import org.eclipse.dltk.javascript.typeinfo.model.TypeVariable;
-import org.eclipse.dltk.javascript.typeinfo.model.TypeVariableClassType;
-import org.eclipse.dltk.javascript.typeinfo.model.TypeVariableReference;
-import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
-import org.eclipse.emf.ecore.EAttribute;
-import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
-import org.eclipse.emf.ecore.EReference;
-import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.InternalEObject;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceImpl;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
-import org.eclipse.emf.ecore.util.EcoreUtil;
 
-public class TypeInferencer2 implements ITypeInferenceContext {
+public class TypeInferencer2 extends TypeSystemImpl implements
+		ITypeInferenceContext {
 
 	private TypeInferencerVisitor visitor;
 	private ReferenceSource source;
@@ -174,14 +161,7 @@ public class TypeInferencer2 implements ITypeInferenceContext {
 				false);
 	}
 
-	public Type resolveType(Type type) {
-		if (type != null && type.isProxy()) {
-			return doResolveType(type);
-		} else {
-			return type;
-		}
-	}
-
+	@Override
 	public Type doResolveType(Type type) {
 		final String typeName = URI.decode(((InternalEObject) type).eProxyURI()
 				.fragment());
@@ -192,176 +172,9 @@ public class TypeInferencer2 implements ITypeInferenceContext {
 		return type;
 	}
 
-	private String buildParameterizedTypeName(final GenericType genericType,
-			List<IRType> parameters) {
-		final StringBuilder parameterizedName = new StringBuilder();
-		parameterizedName.append(genericType.getName());
-		parameterizedName.append("<");
-		for (int i = 0; i < genericType.getTypeParameters().size(); ++i) {
-			if (i > 0) {
-				parameterizedName.append(",");
-			}
-			if (i < parameters.size()) {
-				parameterizedName.append(parameters.get(i).getName());
-			} else {
-				parameterizedName.append("*");
-			}
-		}
-		parameterizedName.append(">");
-		final String name = parameterizedName.toString();
-		return name;
-	}
-
-	public Type parameterize(Type target, List<IRType> parameters) {
-		target = resolveType(target);
-		if (target instanceof GenericType) {
-			final GenericType genericType = (GenericType) target;
-			final String name = buildParameterizedTypeName(genericType,
-					parameters);
-			Type type = types.get(name);
-			if (type != null) {
-				if (DEBUG) {
-					System.out.println("Returning " + name);
-				}
-				return type;
-			}
-			if (DEBUG) {
-				System.out.println("Creating " + name);
-			}
-			final Parameterizer parameterizer = new Parameterizer(genericType,
-					parameters);
-			type = parameterizer.copy();
-			parameterizer.copyReferences();
-			type.setName(name);
-			type.eAdapters().add(
-					new OriginReference(genericType,
-							parameterizer.actualParameters));
-			types.put(name, type);
-			typeRS.addToResource(type);
-			final Type superType = target.getSuperType();
-			if (superType != null) {
-				if (superType instanceof GenericType) {
-					type.setSuperType(parameterize(superType, parameters));
-				} else {
-					type.setSuperType(superType);
-				}
-			}
-			return type;
-		}
-		return target;
-	}
-
-	@SuppressWarnings("serial")
-	private static class Parameterizer extends EcoreUtil.Copier {
-
-		final GenericType genericType;
-		final Map<TypeVariable, IRType> parameters = new HashMap<TypeVariable, IRType>();
-		final IRType[] actualParameters;
-
-		public Parameterizer(GenericType genericType, List<IRType> parameters) {
-			super(false);
-			this.genericType = genericType;
-			final EList<TypeVariable> variables = genericType
-					.getTypeParameters();
-			this.actualParameters = new IRType[variables.size()];
-			for (int i = 0; i < variables.size(); ++i) {
-				final TypeVariable variable = variables.get(i);
-				IRType variableType = null;
-				if (i < parameters.size()) {
-					variableType = parameters.get(i);
-				}
-				if (variableType == null) {
-					variableType = RTypes.any();
-				}
-				actualParameters[i] = variableType;
-				this.parameters.put(variable, variableType);
-			}
-		}
-
-		public Type copy() {
-			return (Type) copy(genericType);
-		}
-
-		@Override
-		public EObject copy(EObject eObject) {
-			if (eObject == null) {
-				return null;
-			} else {
-				final EObject copyEObject;
-				final EClass eClass;
-				if (eObject == genericType) {
-					final EClass genericClass = genericType.eClass();
-					final String parametererizedType = EcoreUtil.getAnnotation(
-							genericClass, TypeInfoModelPackage.eNS_URI,
-							"parameterizedType");
-					if (parametererizedType != null) {
-						final EClass parametererizedClass = (EClass) genericClass
-								.getEPackage().getEClassifier(
-										parametererizedType);
-						copyEObject = EcoreUtil.create(parametererizedClass);
-					} else {
-						copyEObject = TypeInfoModelFactory.eINSTANCE
-								.createType();
-					}
-					eClass = copyEObject.eClass();
-				} else if (eObject instanceof TypeVariableReference) {
-					final IRType source = parameters
-							.get(((TypeVariableReference) eObject)
-									.getVariable());
-					if (source != null) {
-						return TypeUtil.createRType(source);
-					}
-					// probably generic static method in generic class.
-					copyEObject = createCopy(eObject);
-					eClass = eObject.eClass();
-				} else if (eObject instanceof TypeVariableClassType) {
-					final IRType source = parameters
-							.get(((TypeVariableClassType) eObject)
-									.getVariable());
-					return TypeUtil
-							.createRType(RTypes
-									.classType(source instanceof IRSimpleType ? ((IRSimpleType) source)
-											.getTarget() : null));
-				} else {
-					copyEObject = createCopy(eObject);
-					eClass = eObject.eClass();
-				}
-				put(eObject, copyEObject);
-				for (int i = 0, size = eClass.getFeatureCount(); i < size; ++i) {
-					EStructuralFeature eStructuralFeature = eClass
-							.getEStructuralFeature(i);
-					if (eStructuralFeature.isChangeable()
-							&& !eStructuralFeature.isDerived()) {
-						if (eStructuralFeature instanceof EAttribute) {
-							copyAttribute((EAttribute) eStructuralFeature,
-									eObject, copyEObject);
-						} else {
-							EReference eReference = (EReference) eStructuralFeature;
-							if (eReference.isContainment()) {
-								copyContainment(eReference, eObject,
-										copyEObject);
-							}
-						}
-					}
-				}
-				copyProxyURI(eObject, copyEObject);
-				return copyEObject;
-			}
-		}
-
-		@Override
-		protected void copyReference(EReference eReference, EObject eObject,
-				EObject copyEObject) {
-			if (eObject instanceof TypeVariableReference
-					|| eObject instanceof TypeVariableClassType)
-				return;
-			if (eReference == TypeInfoModelPackage.Literals.TYPE__SUPER_TYPE
-					&& eObject == genericType) {
-				// superType is handled specially
-				return;
-			}
-			super.copyReference(eReference, eObject, copyEObject);
-		}
+	@Override
+	protected void notifyTypeCreated(Type type) {
+		typeRS.addToResource(type);
 	}
 
 	public Set<String> listTypes(TypeMode mode, String prefix) {
@@ -685,21 +498,6 @@ public class TypeInferencer2 implements ITypeInferenceContext {
 		} else {
 			return null;
 		}
-	}
-
-	private Map<Object, Object> values;
-
-	public Object getValue(Object key) {
-		assert key != null;
-		return values != null ? values.get(key) : null;
-	}
-
-	public void setValue(Object key, Object value) {
-		assert key != null;
-		if (values == null) {
-			values = new HashMap<Object, Object>();
-		}
-		values.put(key, value);
 	}
 
 }
