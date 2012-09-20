@@ -19,7 +19,6 @@ import java.util.Set;
 import org.eclipse.core.runtime.Assert;
 import org.eclipse.dltk.compiler.problem.IProblemCategory;
 import org.eclipse.dltk.compiler.problem.IProblemIdentifier;
-import org.eclipse.dltk.javascript.typeinference.ReferenceLocation;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IMember;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IMethod;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IParameter;
@@ -35,17 +34,15 @@ public class RModelBuilder {
 
 		private final String name;
 		protected final IRType type;
-		private final ReferenceLocation location;
 		// nullable
 		private final Set<IProblemCategory> suppressedWarnings;
 		// nullable
 		private final Object source;
 
-		public RElement(String name, IRType type, ReferenceLocation location,
+		public RElement(String name, IRType type,
 				Set<IProblemCategory> suppressedWarnings, Object source) {
 			this.name = name;
 			this.type = type;
-			this.location = location;
 			this.suppressedWarnings = suppressedWarnings;
 			this.source = source;
 		}
@@ -56,10 +53,6 @@ public class RModelBuilder {
 
 		public IRType getType() {
 			return type;
-		}
-
-		public ReferenceLocation getLocation() {
-			return location;
 		}
 
 		public Set<IProblemCategory> getSuppressedWarnings() {
@@ -98,11 +91,11 @@ public class RModelBuilder {
 		final Visibility visibility;
 		final IRTypeDeclaration typeDeclaration;
 
-		public RMember(String name, IRType type, ReferenceLocation location,
+		public RMember(String name, IRType type,
 				Set<IProblemCategory> suppressedWarnings,
 				Visibility visibility, Object source,
 				IRTypeDeclaration typeDeclaration) {
-			super(name, type, location, suppressedWarnings, source);
+			super(name, type, suppressedWarnings, source);
 			this.visibility = visibility;
 			this.typeDeclaration = typeDeclaration;
 		}
@@ -121,12 +114,11 @@ public class RModelBuilder {
 		final boolean _constructor;
 		final List<IRParameter> parameters;
 
-		public RMethod(String name, IRType type, ReferenceLocation location,
+		public RMethod(String name, IRType type,
 				Set<IProblemCategory> suppressedWarnings,
 				Visibility visibility, boolean _constructor,
 				List<IRParameter> parameters, Object source) {
-			super(name, type, location, suppressedWarnings, visibility, source,
-					null);
+			super(name, type, suppressedWarnings, visibility, source, null);
 			this._constructor = _constructor;
 			this.parameters = parameters;
 		}
@@ -225,28 +217,25 @@ public class RModelBuilder {
 
 	private static class RVariable extends RMember implements IRVariable {
 
-		public RVariable(String name, IRType type, ReferenceLocation location,
+		public RVariable(String name, IRType type,
 				Set<IProblemCategory> suppressedWarnings,
 				Visibility visibility, Object source) {
-			super(name, type, location, suppressedWarnings, visibility, source,
-					null);
+			super(name, type, suppressedWarnings, visibility, source, null);
 		}
 
 	}
 
 	public static IRMethod create(ITypeSystem context, IMethod method) {
 		return new RMethod(method.getName(), RTypes.create(context,
-				method.getType()), method.getLocation(),
-				method.getSuppressedWarnings(), method.getVisibility(),
-				method.isConstructor(), convertParams0(context,
-						method.getParameters()), method);
+				method.getType()), method.getSuppressedWarnings(),
+				method.getVisibility(), method.isConstructor(), convertParams0(
+						context, method.getParameters()), method);
 	}
 
 	public static IRVariable create(ITypeSystem context, IVariable variable) {
 		return new RVariable(variable.getName(), RTypes.create(context,
-				variable.getType()), variable.getLocation(),
-				variable.getSuppressedWarnings(), variable.getVisibility(),
-				variable);
+				variable.getType()), variable.getSuppressedWarnings(),
+				variable.getVisibility(), variable);
 	}
 
 	public static List<IRParameter> convert(ITypeSystem context,

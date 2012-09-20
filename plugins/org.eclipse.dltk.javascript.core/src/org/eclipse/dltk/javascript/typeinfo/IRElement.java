@@ -15,13 +15,10 @@ import java.util.Set;
 
 import org.eclipse.dltk.compiler.problem.IProblemCategory;
 import org.eclipse.dltk.compiler.problem.IProblemIdentifier;
-import org.eclipse.dltk.javascript.typeinference.ReferenceLocation;
 
 public interface IRElement {
 
 	String getName();
-
-	ReferenceLocation getLocation();
 
 	Set<IProblemCategory> getSuppressedWarnings();
 
@@ -30,7 +27,8 @@ public interface IRElement {
 	boolean isDeprecated();
 
 	/**
-	 * Returns the declaration object used to construct this "runtime" element.
+	 * Returns the declaration object used to construct this "runtime/resolved"
+	 * element.
 	 */
 	Object getSource();
 

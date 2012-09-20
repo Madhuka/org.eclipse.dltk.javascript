@@ -14,6 +14,7 @@ package org.eclipse.dltk.internal.javascript.validation;
 import static org.eclipse.dltk.internal.javascript.ti.IReferenceAttributes.PHANTOM;
 import static org.eclipse.dltk.internal.javascript.ti.IReferenceAttributes.R_METHOD;
 import static org.eclipse.dltk.internal.javascript.validation.JavaScriptValidations.typeOf;
+import static org.eclipse.dltk.internal.javascript.validation.RUtils.locationOf;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -652,7 +653,10 @@ public class TypeInfoValidator implements IBuildParticipant,
 							scope.returnNodes));
 				} else if (!scope.throwsException && method.getType() != null
 						&& !TypeUtil.isUndefined(method.getType())) {
-					final ReferenceLocation location = method.getLocation();
+					final ReferenceLocation location = locationOf(method);
+					if (location == null) {
+						return;
+					}
 					reporter.reportProblem(
 							JavaScriptProblems.DECLARATION_MISMATCH_ACTUAL_RETURN_TYPE,
 							NLS.bind(
