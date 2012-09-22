@@ -11,18 +11,24 @@
  *******************************************************************************/
 package org.eclipse.dltk.internal.javascript.ti;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.dltk.javascript.internal.core.RTypeDeclaration;
 import org.eclipse.dltk.javascript.typeinfo.AttributeKey;
+import org.eclipse.dltk.javascript.typeinfo.IRMember;
 import org.eclipse.dltk.javascript.typeinfo.IRType;
+import org.eclipse.dltk.javascript.typeinfo.IRTypeDeclaration;
 import org.eclipse.dltk.javascript.typeinfo.ITypeSystem;
 import org.eclipse.dltk.javascript.typeinfo.OriginReference;
 import org.eclipse.dltk.javascript.typeinfo.RTypes;
 import org.eclipse.dltk.javascript.typeinfo.model.GenericType;
 import org.eclipse.dltk.javascript.typeinfo.model.Member;
+import org.eclipse.dltk.javascript.typeinfo.model.Method;
+import org.eclipse.dltk.javascript.typeinfo.model.Property;
 import org.eclipse.dltk.javascript.typeinfo.model.Type;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeInfoModelLoader;
 import org.eclipse.emf.common.util.URI;
@@ -56,6 +62,52 @@ public class TypeSystemImpl implements ITypeSystem {
 	 * @see ITypeSystem#valueOf(Member)
 	 */
 	public IValue valueOf(Member member) {
+		return null;
+	}
+
+	private final Map<Type, IRTypeDeclaration> typeDeclarations = new HashMap<Type, IRTypeDeclaration>();
+
+	public IRTypeDeclaration convert(Type type) {
+		return convertType(type);
+	}
+
+	private IRTypeDeclaration _convert(final Type type) {
+		return type != null ? convertType(type) : null;
+	}
+
+	private IRTypeDeclaration convertType(Type type) {
+		IRTypeDeclaration declaration = typeDeclarations.get(type);
+		if (declaration != null) {
+			return declaration;
+		}
+		final IRTypeDeclaration superType = _convert(type.getSuperType());
+		final List<IRTypeDeclaration> traits = new ArrayList<IRTypeDeclaration>();
+		for (Type trait : type.getTraits()) {
+			traits.add(convertType(trait));
+		}
+		final List<IRMember> members = new ArrayList<IRMember>(type
+				.getMembers().size());
+		for (Member member : type.getMembers()) {
+			if (member instanceof Method) {
+				members.add(convertMethod((Method) member));
+			} else {
+				assert member instanceof Property;
+				members.add(convertProperty((Property) member));
+			}
+		}
+		// TODO members
+		declaration = new RTypeDeclaration(type, superType, traits, members);
+		typeDeclarations.put(type, declaration);
+		return declaration;
+	}
+
+	private IRMember convertProperty(Property member) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	private IRMember convertMethod(Method member) {
+		// TODO Auto-generated method stub
 		return null;
 	}
 

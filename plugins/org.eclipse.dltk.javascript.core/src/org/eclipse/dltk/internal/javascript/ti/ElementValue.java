@@ -35,6 +35,7 @@ import org.eclipse.dltk.javascript.typeinfo.IRRecordMember;
 import org.eclipse.dltk.javascript.typeinfo.IRRecordType;
 import org.eclipse.dltk.javascript.typeinfo.IRSimpleType;
 import org.eclipse.dltk.javascript.typeinfo.IRType;
+import org.eclipse.dltk.javascript.typeinfo.IRTypeDeclaration;
 import org.eclipse.dltk.javascript.typeinfo.IRUnionType;
 import org.eclipse.dltk.javascript.typeinfo.ITypeSystem;
 import org.eclipse.dltk.javascript.typeinfo.JSTypeSet;
@@ -102,6 +103,10 @@ public abstract class ElementValue implements IValue {
 
 		public void setValue(Object key, Object value) {
 			origin.setValue(key, value);
+		}
+
+		public IRTypeDeclaration convert(Type type) {
+			return origin.convert(type);
 		}
 	}
 

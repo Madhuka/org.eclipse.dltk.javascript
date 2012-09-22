@@ -18,12 +18,14 @@ import org.eclipse.dltk.internal.javascript.ti.IValue;
 import org.eclipse.dltk.internal.javascript.ti.TypeInferencer2;
 import org.eclipse.dltk.javascript.typeinfo.AttributeKey;
 import org.eclipse.dltk.javascript.typeinfo.IRType;
+import org.eclipse.dltk.javascript.typeinfo.IRTypeDeclaration;
 import org.eclipse.dltk.javascript.typeinfo.ITypeSystem;
 import org.eclipse.dltk.javascript.typeinfo.ITypeSystem.ThreadTypeSystem;
 import org.eclipse.dltk.javascript.typeinfo.ReferenceSource;
 import org.eclipse.dltk.javascript.typeinfo.model.Member;
 import org.eclipse.dltk.javascript.typeinfo.model.Type;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeInfoModelLoader;
+import org.eclipse.osgi.util.NLS;
 
 public class ThreadTypeSystemImpl extends ThreadLocal<ITypeSystem> implements
 		ThreadTypeSystem {
@@ -90,6 +92,21 @@ public class ThreadTypeSystemImpl extends ThreadLocal<ITypeSystem> implements
 				}
 			}
 			return type;
+		}
+
+		public IRTypeDeclaration convert(Type type) {
+			final ITypeSystem current = current();
+			if (current != null) {
+				return current.convert(type);
+			} else if (TypeInfoModelLoader.getInstance().hasResource(
+					type.eResource())) {
+				return TypeSystems.GLOBAL_TYPE_SYSTEM.convert(type);
+			} else {
+				throw new IllegalStateException(
+						NLS.bind(
+								"Current type system is not avilable for converting {0} type",
+								type.getName()));
+			}
 		}
 
 		public Type parameterize(Type target, List<IRType> parameters) {

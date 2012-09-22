@@ -243,7 +243,8 @@ public class RModelBuilder {
 		if (parameters.isEmpty()) {
 			return Collections.emptyList();
 		} else {
-			final List<IRParameter> params = new ArrayList<IRParameter>();
+			final List<IRParameter> params = new ArrayList<IRParameter>(
+					parameters.size());
 			for (Parameter parameter : parameters) {
 				final IRType paramType = parameter.getType() != null ? RTypes
 						.create(context, parameter.getType()) : RTypes.any();

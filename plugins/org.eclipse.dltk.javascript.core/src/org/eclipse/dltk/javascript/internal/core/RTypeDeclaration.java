@@ -11,6 +11,7 @@
  *******************************************************************************/
 package org.eclipse.dltk.javascript.internal.core;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -18,17 +19,30 @@ import org.eclipse.dltk.compiler.problem.IProblemCategory;
 import org.eclipse.dltk.compiler.problem.IProblemIdentifier;
 import org.eclipse.dltk.javascript.typeinfo.IRMember;
 import org.eclipse.dltk.javascript.typeinfo.IRTypeDeclaration;
+import org.eclipse.dltk.javascript.typeinfo.model.Type;
 
 public class RTypeDeclaration implements IRTypeDeclaration {
 
+	private final Type type;
+	private final IRTypeDeclaration superType;
+	private final List<IRTypeDeclaration> traits;
+	private final List<IRMember> members;
+
+	public RTypeDeclaration(Type type, IRTypeDeclaration superType,
+			List<IRTypeDeclaration> traits, List<IRMember> members) {
+		this.type = type;
+		this.superType = superType;
+		this.traits = traits;
+		this.members = members;
+	}
+
 	public String getName() {
-		// TODO Auto-generated method stub
-		return null;
+		return type.getName();
 	}
 
 	public Set<IProblemCategory> getSuppressedWarnings() {
 		// TODO Auto-generated method stub
-		return null;
+		return Collections.emptySet();
 	}
 
 	public boolean isSuppressed(IProblemIdentifier problemIdentifier) {
@@ -37,28 +51,37 @@ public class RTypeDeclaration implements IRTypeDeclaration {
 	}
 
 	public boolean isDeprecated() {
-		// TODO Auto-generated method stub
-		return false;
+		return type.isDeprecated();
 	}
 
 	public Object getSource() {
-		// TODO Auto-generated method stub
-		return null;
+		return type;
 	}
 
 	public IRTypeDeclaration getSuperType() {
-		// TODO Auto-generated method stub
-		return null;
+		return superType;
 	}
 
 	public List<IRTypeDeclaration> getTraits() {
-		// TODO Auto-generated method stub
-		return null;
+		return traits;
 	}
 
 	public List<IRMember> getMembers() {
-		// TODO Auto-generated method stub
-		return null;
+		return members;
+	}
+
+	@Override
+	public int hashCode() {
+		return type.hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof RTypeDeclaration) {
+			final RTypeDeclaration other = (RTypeDeclaration) obj;
+			return type == other.type;
+		}
+		return false;
 	}
 
 }

@@ -85,6 +85,11 @@ public interface ITypeSystem {
 	 */
 	IValue valueOf(Member member);
 
+	/**
+	 * Convert type model to the runtime representation.
+	 */
+	IRTypeDeclaration convert(Type type);
+
 	Type parameterize(Type target, List<IRType> parameters);
 
 	/**
