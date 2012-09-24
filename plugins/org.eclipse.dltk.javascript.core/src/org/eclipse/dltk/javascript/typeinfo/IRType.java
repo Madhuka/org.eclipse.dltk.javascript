@@ -15,13 +15,16 @@ import org.eclipse.dltk.javascript.typeinfo.model.JSType;
 import org.eclipse.dltk.javascript.typeinfo.model.Type;
 
 /**
- * "Runtime" type expression hierarchy, used when evaluating the code. The
- * instances are created based on EMF-backed {@link JSType} type expressions
+ * "Runtime/Resolved" type expression hierarchy, used when evaluating the code.
+ * The instances are created based on EMF-backed {@link JSType} type expressions
  * (which are used only for declarations).
  * <p>
  * The rationale for these classes is having an easy and efficient way to
  * compare type expressions and a standard way for resolving {@link Type}
  * proxies.
+ * </p>
+ * <p>
+ * Use {@link RTypes#create(ITypeSystem, JSType)} to create them.
  * </p>
  */
 public interface IRType {
@@ -47,5 +50,12 @@ public interface IRType {
 	 * Answers if additional members could be added to this type expression.
 	 */
 	boolean isExtensible();
+
+	/**
+	 * Answers if this type expression extends JavaScript Object type. The only
+	 * possible way to have <code>false</code> here is {@link IRSimpleType}
+	 * pointing to foreign (java) type in Rhino environment.
+	 */
+	boolean isJavaScriptObject();
 
 }

@@ -204,11 +204,11 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 		final JSTypeSet types = JSTypeSet.create();
 		for (ASTNode astNode : node.getItems()) {
 			if (astNode instanceof StringLiteral) {
-				types.add(JSTypeSet.ref(STRING));
+				types.add(RTypes.simple(STRING));
 			} else if (astNode instanceof DecimalLiteral) {
-				types.add(JSTypeSet.ref(NUMBER));
+				types.add(RTypes.simple(NUMBER));
 			} else if (astNode instanceof BooleanLiteral) {
-				types.add(JSTypeSet.ref(BOOLEAN));
+				types.add(RTypes.simple(BOOLEAN));
 			} else if (astNode instanceof NullExpression
 					|| astNode instanceof EmptyExpression) {
 				// ignore
@@ -224,7 +224,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 			return new ConstantValue(RTypes.arrayOf());
 		} else if (types.size() == 1) {
 			return context.getFactory().create(peekContext(),
-					JSTypeSet.arrayOf(types.getFirst()));
+					RTypes.arrayOf(types.getFirst()));
 		} else {
 			// TODO (alex) if not empty then evaluate common base type.
 			return context.getFactory().createArray(peekContext());
@@ -306,7 +306,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 
 	private boolean isNumber(IValueReference ref) {
 		if (ref != null) {
-			final IRType numType = JSTypeSet.ref(NUMBER);
+			final IRType numType = RTypes.simple(NUMBER);
 			if (ref.getTypes().contains(numType))
 				return true;
 			if (numType.equals(ref.getDeclaredType()))
@@ -317,7 +317,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 
 	private boolean isString(IValueReference ref) {
 		if (ref != null) {
-			final IRType strType = JSTypeSet.ref(STRING);
+			final IRType strType = RTypes.simple(STRING);
 			if (ref.getTypes().contains(strType))
 				return true;
 			if (strType.equals(ref.getDeclaredType()))
@@ -406,7 +406,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 					}
 				} else {
 					final ITypeSystem typeSystem = getTypeSystemOf(reference);
-					final IRType type = JSTypeSet.normalize(typeSystem, methods
+					final IRType type = RTypes.create(typeSystem, methods
 							.get(0).getType());
 					return ConstantValue.valueOf(type);
 				}
@@ -426,8 +426,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 									.getStaticConstructor();
 							if (constructor != null) {
 								return new ConstantValue(
-										JSTypeSet.normalize(constructor
-												.getType()));
+										RTypes.create(constructor.getType()));
 							}
 						}
 					}
@@ -500,7 +499,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 			return normalizeCapture(captures.get(variable));
 		} else if (type instanceof ArrayType) {
 			final JSType itemType = ((ArrayType) type).getItemType();
-			return JSTypeSet.singleton(JSTypeSet.arrayOf(evaluateReturnType(
+			return JSTypeSet.singleton(RTypes.arrayOf(evaluateReturnType(
 					itemType, captures).toRType()));
 		} else if (type instanceof ParameterizedType) {
 			List<IRType> params = new ArrayList<IRType>();
@@ -508,10 +507,10 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 			for (JSType param : parameterized.getActualTypeArguments()) {
 				params.add(evaluateReturnType(param, captures).toRType());
 			}
-			return JSTypeSet.singleton(JSTypeSet.ref(getContext().parameterize(
+			return JSTypeSet.singleton(RTypes.simple(getContext().parameterize(
 					parameterized.getTarget(), params)));
 		} else if (type instanceof SimpleType) {
-			return JSTypeSet.create(JSTypeSet.normalize(getContext(), type));
+			return JSTypeSet.create(RTypes.create(getContext(), type));
 		} else {
 			return JSTypeSet.emptySet();
 		}
@@ -778,7 +777,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 				final IRType itemType = ((IRMapType) type).getValueType();
 				setIRType(itemReference, itemType, true);
 			} else if (ITypeNames.XMLLIST.equals(type.getName())) {
-				itemReference.setDeclaredType(JSTypeSet.ref(context
+				itemReference.setDeclaredType(RTypes.simple(context
 						.getType(ITypeNames.XML)));
 			}
 		}
@@ -813,8 +812,12 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 	@Override
 	public IValueReference visitFunctionStatement(FunctionStatement node) {
 		final JSMethod method = generateJSMethod(node);
+		final ThisValue thisValue = new ThisValue();
+		thisValue.setDeclaredType(RTypes.create(this.getContext(),
+				method.getThisType()));
 		final IValueCollection function = new FunctionValueCollection(
-				peekContext(), method.getName(), node.isInlineBlock());
+				peekContext(), method.getName(), thisValue,
+				node.isInlineBlock());
 
 		for (IParameter parameter : method.getParameters()) {
 			final IValueReference refArg = function.createChild(parameter
@@ -832,7 +835,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 		}
 		result.setLocation(method.getLocation());
 		result.setKind(ReferenceKind.FUNCTION);
-		result.setDeclaredType(JSTypeSet.ref(FUNCTION));
+		result.setDeclaredType(RTypes.simple(FUNCTION));
 		result.setAttribute(IReferenceAttributes.METHOD, method);
 		result.setAttribute(IReferenceAttributes.R_METHOD,
 				RModelBuilder.create(getContext(), method));
@@ -906,7 +909,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 		if (type == null) {
 			return;
 		}
-		final IRType rt = JSTypeSet.normalize(getContext(), type);
+		final IRType rt = RTypes.create(getContext(), type);
 		setIRType(value, rt, lazyEnabled);
 	}
 
@@ -1124,9 +1127,9 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 						type.setSuperType(OBJECT);
 						type.setKind(TypeKind.JAVASCRIPT);
 						type.setName(className);
-						result.value.setDeclaredType(JSTypeSet.ref(type));
+						result.value.setDeclaredType(RTypes.simple(type));
 					} else {
-						result.value.setDeclaredType(JSTypeSet.ref(OBJECT));
+						result.value.setDeclaredType(RTypes.simple(OBJECT));
 					}
 				}
 			} else if (result.typeValue.exists()) {
@@ -1135,7 +1138,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 						result.value = new AnonymousNewValue();
 						result.value.setKind(ReferenceKind.TYPE);
 						result.value.setDeclaredType(((IRClassType) type)
-								.toItemType());
+								.newItemType());
 						return result;
 					}
 				}
@@ -1144,7 +1147,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 						result.value = new AnonymousNewValue();
 						result.value.setKind(ReferenceKind.TYPE);
 						result.value.setDeclaredType(((IRClassType) type)
-								.toItemType());
+								.newItemType());
 						return result;
 					}
 				}
@@ -1159,7 +1162,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 				if (knownType != null) {
 					result.value = new AnonymousNewValue();
 					result.value.setValue(context.getFactory().create(
-							contextValueCollection, JSTypeSet.ref(knownType)));
+							contextValueCollection, RTypes.simple(knownType)));
 					result.value.setKind(ReferenceKind.TYPE);
 				} else {
 					result.value = new LazyTypeReference(context, className,
@@ -1187,7 +1190,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 	@Override
 	public IValueReference visitObjectInitializer(ObjectInitializer node) {
 		final IValueReference result = new AnonymousValue();
-		result.setDeclaredType(JSTypeSet.ref(OBJECT));
+		result.setDeclaredType(RTypes.simple(OBJECT));
 		for (ObjectInitializerPart part : node.getInitializers()) {
 			if (part instanceof PropertyInitializer) {
 				final PropertyInitializer pi = (PropertyInitializer) part;
@@ -1448,7 +1451,7 @@ public class TypeInferencerVisitor extends TypeInferencerVisitorBase {
 				peekContext());
 
 		if (xmlValueReference instanceof IValueProvider) {
-			IRType xmlType = JSTypeSet.ref(context.getKnownType(ITypeNames.XML,
+			IRType xmlType = RTypes.simple(context.getKnownType(ITypeNames.XML,
 					null));
 			IValue xmlValue = ((IValueProvider) xmlValueReference).getValue();
 			List<XmlFragment> fragments = node.getFragments();

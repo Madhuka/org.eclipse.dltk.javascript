@@ -50,10 +50,13 @@ import org.eclipse.dltk.javascript.typeinfo.ITypeInfoContext;
 import org.eclipse.dltk.javascript.typeinfo.JSDocParseException;
 import org.eclipse.dltk.javascript.typeinfo.JSDocTypeParser;
 import org.eclipse.dltk.javascript.typeinfo.model.JSType;
+import org.eclipse.dltk.javascript.typeinfo.model.Member;
+import org.eclipse.dltk.javascript.typeinfo.model.ParameterKind;
 import org.eclipse.dltk.javascript.typeinfo.model.RecordProperty;
 import org.eclipse.dltk.javascript.typeinfo.model.RecordType;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeInfoModelFactory;
 import org.eclipse.dltk.javascript.typeinfo.model.Visibility;
+import org.eclipse.emf.common.util.EList;
 import org.eclipse.osgi.util.NLS;
 
 /**
@@ -96,6 +99,7 @@ public class JSDocSupport implements IModelBuilder {
 			parseType(method, tags, JSDocTag.RETURN_TAGS, reporter, typeChecker);
 		}
 		parseParams(method, tags, reporter, typeChecker);
+		parseThis(method, tags, reporter, typeChecker);
 		parseDeprecation(method, tags, reporter);
 		parseAccessModifiers(method, tags, reporter);
 		parseConstructor(method, tags, reporter);
@@ -295,6 +299,20 @@ public class JSDocSupport implements IModelBuilder {
 		parseSuppressWarnings(variable, tags, reporter);
 	}
 
+	private void parseThis(IMethod method, JSDocTags tags,
+			JSProblemReporter reporter, ITypeChecker typeChecker) {
+		final JSDocTag thisTag = tags.get(JSDocTag.THIS);
+		if (thisTag != null) {
+			final JSType type = parseType(thisTag, false, reporter);
+			if (type != null) {
+				if (typeChecker != null)
+					typeChecker.checkType(type, thisTag);
+				method.setThisType(type);
+			}
+			validateSingleTag(tags, JSDocTag.THIS, reporter);
+		}
+	}
+
 	private void parseDeprecation(IMember member, JSDocTags tags,
 			JSProblemReporter reporter) {
 		if (tags.get(JSDocTag.DEPRECATED) != null) {
@@ -365,7 +383,7 @@ public class JSDocSupport implements IModelBuilder {
 							- DOTS.length());
 				}
 				String propertyName = null;
-				int propertiesObjectIndex = paramName.indexOf('.');
+				int propertiesObjectIndex = paramName.lastIndexOf('.');
 				if (propertiesObjectIndex != -1) {
 					// http://code.google.com/p/jsdoc-toolkit/wiki/TagParam
 					// = Parameters With Properties =
@@ -387,10 +405,29 @@ public class JSDocSupport implements IModelBuilder {
 							if (param != null) {
 								param.setType(propertiesType);
 							} else {
-								++problemCount;
-								reportProblem(reporter,
-										JSDocProblem.UNKNOWN_PARAM, tag,
-										objectName);
+								int index = objectName.lastIndexOf('.');
+								if (index == -1) {
+									++problemCount;
+									reportProblem(reporter,
+											JSDocProblem.UNKNOWN_PARAM, tag,
+											objectName);
+								} else {
+									RecordType parentRecordType = objectPropertiesTypes
+											.get(objectName.substring(0, index));
+									if (parentRecordType != null) {
+										String memberName = objectName
+												.substring(index + 1);
+										EList<Member> members = parentRecordType
+												.getMembers();
+										for (Member member : members) {
+											if (member.getName().equals(
+													memberName)) {
+												member.setType(propertiesType);
+												break;
+											}
+										}
+									}
+								}
 							}
 						}
 						final RecordProperty property = TypeInfoModelFactory.eINSTANCE
@@ -469,8 +506,11 @@ public class JSDocSupport implements IModelBuilder {
 				typeChecker.checkType(type, tag);
 			parameter.setType(type);
 		}
-		parameter.setOptional(pp.optional);
-		parameter.setVarargs(pp.varargs);
+		if (pp.varargs) {
+			parameter.setKind(ParameterKind.VARARGS);
+		} else if (pp.optional) {
+			parameter.setKind(ParameterKind.OPTIONAL);
+		}
 	}
 
 	public static final String[] TYPE_TAGS = { JSDocTag.TYPE };

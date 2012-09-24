@@ -26,6 +26,7 @@ import org.eclipse.dltk.compiler.CharOperation;
 import org.eclipse.dltk.compiler.env.IModuleSource;
 import org.eclipse.dltk.compiler.problem.IValidationStatus;
 import org.eclipse.dltk.compiler.problem.ValidationStatus;
+import org.eclipse.dltk.core.CompletionContext;
 import org.eclipse.dltk.core.CompletionProposal;
 import org.eclipse.dltk.core.DLTKCore;
 import org.eclipse.dltk.core.IAccessRule;
@@ -42,31 +43,31 @@ import org.eclipse.dltk.javascript.ast.Script;
 import org.eclipse.dltk.javascript.ast.StringLiteral;
 import org.eclipse.dltk.javascript.core.JavaScriptKeywords;
 import org.eclipse.dltk.javascript.core.JavaScriptPlugin;
+import org.eclipse.dltk.javascript.core.NodeFinder;
 import org.eclipse.dltk.javascript.core.Types;
 import org.eclipse.dltk.javascript.parser.JavaScriptParserUtil;
 import org.eclipse.dltk.javascript.typeinference.IValueCollection;
 import org.eclipse.dltk.javascript.typeinference.IValueParent;
 import org.eclipse.dltk.javascript.typeinference.IValueReference;
 import org.eclipse.dltk.javascript.typeinference.ReferenceKind;
+import org.eclipse.dltk.javascript.typeinfo.IRArrayType;
 import org.eclipse.dltk.javascript.typeinfo.IRClassType;
 import org.eclipse.dltk.javascript.typeinfo.IRFunctionType;
 import org.eclipse.dltk.javascript.typeinfo.IRMethod;
-import org.eclipse.dltk.javascript.typeinfo.IRParameter;
 import org.eclipse.dltk.javascript.typeinfo.IRRecordMember;
 import org.eclipse.dltk.javascript.typeinfo.IRRecordType;
 import org.eclipse.dltk.javascript.typeinfo.IRSimpleType;
 import org.eclipse.dltk.javascript.typeinfo.IRType;
 import org.eclipse.dltk.javascript.typeinfo.ITypeNames;
+import org.eclipse.dltk.javascript.typeinfo.ITypeSystem;
 import org.eclipse.dltk.javascript.typeinfo.JSTypeSet;
 import org.eclipse.dltk.javascript.typeinfo.MemberPredicate;
 import org.eclipse.dltk.javascript.typeinfo.MemberPredicates;
 import org.eclipse.dltk.javascript.typeinfo.TypeMemberQuery;
 import org.eclipse.dltk.javascript.typeinfo.TypeMode;
-import org.eclipse.dltk.javascript.typeinfo.TypeUtil;
 import org.eclipse.dltk.javascript.typeinfo.model.Element;
 import org.eclipse.dltk.javascript.typeinfo.model.Member;
 import org.eclipse.dltk.javascript.typeinfo.model.Method;
-import org.eclipse.dltk.javascript.typeinfo.model.Parameter;
 import org.eclipse.dltk.javascript.typeinfo.model.ParameterKind;
 import org.eclipse.dltk.javascript.typeinfo.model.Type;
 import org.eclipse.dltk.javascript.typeinfo.model.TypeKind;
@@ -116,7 +117,7 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 		} catch (PositionReachedException e) {
 			// e.printStackTrace();
 		}
-		TypeInferencer2.withTypeSystem(inferencer2, new Runnable() {
+		ITypeSystem.CURRENT.runWith(inferencer2, new Runnable() {
 			public void run() {
 				final CompletionPath path = new CompletionPath(calculator
 						.getCompletion());
@@ -127,15 +128,15 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 					setSourceRange(position - path.lastSegment().length(),
 							position);
 				}
-				final Reporter reporter = new Reporter(path.lastSegment(),
-						position, visitor.createValidatorExtensions());
+				final Reporter reporter = new Reporter(inferencer2, path
+						.lastSegment(), position, visitor
+						.createValidatorExtensions());
 				if (calculator.isMember() && !path.isEmpty()
 						&& path.lastSegment() != null) {
 					doCompletionOnMember(inferencer2, visitor.getCollection(),
 							path, reporter);
 				} else {
-					doGlobalCompletion(inferencer2, visitor.getCollection(),
-							reporter);
+					doGlobalCompletion(visitor.getCollection(), reporter);
 				}
 			}
 		});
@@ -147,12 +148,64 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 		final TypeInferencer2 inferencer2 = new TypeInferencer2();
 		inferencer2.setModelElement(module);
 		setSourceRange(offset - prefix.length(), offset);
-		doCompletionOnType(inferencer2, mode, new Reporter(prefix, offset,
+		doCompletionOnType(mode, new Reporter(inferencer2, prefix, offset,
 				Collections.<IValidatorExtension> emptyList()));
 	}
 
-	private void doCompletionOnType(ITypeInferenceContext context,
-			TypeMode mode, Reporter reporter) {
+	public void completeGlobals(ISourceModule module, final String prefix,
+			final int offset, boolean jsdoc) {
+		final CompletionContext completionContext = new CompletionContext();
+		completionContext.setOffset(offset);
+		completionContext.setDoc(jsdoc);
+		requestor.acceptContext(completionContext);
+		setSourceRange(offset - prefix.length(), offset);
+		final TypeInferencer2 inferencer2 = new TypeInferencer2();
+		inferencer2.setModelElement(module);
+		final CompletionVisitor visitor = new CompletionVisitor(inferencer2,
+				Integer.MAX_VALUE);
+		inferencer2.setVisitor(visitor);
+		final Script script = JavaScriptParserUtil.parse(module, null);
+		try {
+			inferencer2.doInferencing(script);
+		} catch (PositionReachedException e) {
+			// e.printStackTrace();
+		}
+		ITypeSystem.CURRENT.runWith(inferencer2, new Runnable() {
+			public void run() {
+				final Reporter reporter = new Reporter(inferencer2, prefix,
+						offset, visitor.createValidatorExtensions());
+				doGlobalCompletion(visitor.getCollection(), reporter);
+			}
+		});
+	}
+
+	/**
+	 * Generate completion proposals for the matching members from the specified
+	 * {@link Iterable}.
+	 */
+	public void completeMembers(ISourceModule module, String prefix,
+			int offset, boolean jsdoc, Iterable<Member> memers) {
+		final CompletionContext completionContext = new CompletionContext();
+		completionContext.setOffset(offset);
+		completionContext.setDoc(jsdoc);
+		requestor.acceptContext(completionContext);
+		setSourceRange(offset - prefix.length(), offset);
+		final TypeInferencer2 inferencer2 = new TypeInferencer2();
+		inferencer2.setModelElement(module);
+		final CompletionVisitor visitor = new CompletionVisitor(inferencer2,
+				offset);
+		final Reporter reporter = new Reporter(inferencer2, prefix, offset,
+				visitor.createValidatorExtensions());
+		for (Member member : memers) {
+			final String name = member.getName();
+			if (reporter.matches(name)) {
+				reporter.report(name, member);
+			}
+		}
+	}
+
+	private void doCompletionOnType(TypeMode mode, Reporter reporter) {
+		final ITypeInferenceContext context = reporter.context;
 		Set<String> typeNames = context.listTypes(mode, reporter.getPrefix());
 		for (String typeName : typeNames) {
 			final Type type = context.getType(typeName);
@@ -205,28 +258,27 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 		}
 
 		if (item != null && exists(item)) {
-			reportItems(context, reporter, item);
+			reportItems(reporter, item);
 		}
 	}
 
-	protected void reportItems(ITypeInferenceContext context,
-			Reporter reporter, IValueParent item) {
-		reporter.report(context, item);
+	protected void reportItems(Reporter reporter, IValueParent item) {
+		reporter.report(item);
 		if (item instanceof IValueCollection) {
 			IValueCollection coll = (IValueCollection) item;
 			for (;;) {
 				coll = coll.getParent();
 				if (coll == null)
 					break;
-				reporter.report(context, coll);
+				reporter.report(coll);
 			}
 		} else if (item instanceof IValueReference) {
-			reporter.reportValueTypeMembers(context, (IValueReference) item);
+			reporter.reportValueTypeMembers((IValueReference) item);
 		}
 	}
 
-	protected void reportGlobals(ITypeInferenceContext context,
-			Reporter reporter) {
+	protected void reportGlobals(Reporter reporter) {
+		final ITypeInferenceContext context = reporter.context;
 		final Set<String> globals = context.listGlobals(reporter.getPrefix());
 		for (String global : globals) {
 			if (reporter.canReport(global)) {
@@ -246,7 +298,7 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 	}
 
 	private class Reporter {
-
+		final ITypeInferenceContext context;
 		final char[] prefix;
 		private final String prefixStr;
 		final int position;
@@ -258,8 +310,9 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 						DLTKCore.CODEASSIST_VISIBILITY_CHECK, null, null));
 		final IValidatorExtension[] extensions;
 
-		public Reporter(String prefix, int position,
-				List<IValidatorExtension> extensions) {
+		public Reporter(ITypeInferenceContext context, String prefix,
+				int position, List<IValidatorExtension> extensions) {
+			this.context = context;
 			this.prefixStr = prefix != null ? prefix : "";
 			this.prefix = prefixStr.toCharArray();
 			this.position = position;
@@ -300,7 +353,7 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 
 		private MemberValidationEvent memberValidationEvent;
 
-		public void report(ITypeInferenceContext context, IValueParent item) {
+		public void report(IValueParent item) {
 			final Set<String> deleted = item.getDeletedChildren();
 			CHILDREN: for (String childName : item.getDirectChildren()) {
 				if (childName.equals(IValueReference.FUNCTION_OP))
@@ -332,29 +385,26 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 			}
 		}
 
-		public void reportValueTypeMembers(ITypeInferenceContext context,
-				IValueReference valueRef) {
+		public void reportValueTypeMembers(IValueReference valueRef) {
 			final TypeMemberQuery typeQuery = new TypeMemberQuery();
 			final Set<Member> members = new HashSet<Member>();
-			collectTypes(context, valueRef.getDeclaredTypes(), typeQuery,
-					members);
-			collectTypes(context, valueRef.getTypes(), typeQuery, members);
+			collectTypes(valueRef.getDeclaredTypes(), typeQuery, members,
+					valueRef);
+			collectTypes(valueRef.getTypes(), typeQuery, members, valueRef);
 			for (Member member : members) {
 				reportMember(member, member.getName(), true);
 			}
 			for (Member member : typeQuery.ignoreDuplicates(processed)) {
-				if (member.isVisible()
-						&& CharOperation.prefixEquals(prefix, member.getName(),
-								false)) {
+				if (member.isVisible() && matches(member.getName())) {
 					reportMember(member, member.getName(),
 							typeQuery.contains(member.getDeclaringType()));
 				}
 			}
 		}
 
-		protected void collectTypes(final ITypeInferenceContext context,
-				final JSTypeSet types, final TypeMemberQuery typeQuery,
-				final Collection<Member> members) {
+		protected void collectTypes(final JSTypeSet types,
+				final TypeMemberQuery typeQuery,
+				final Collection<Member> members, IValueReference valueRef) {
 			for (IRType type : types) {
 				if (type instanceof IRClassType) {
 					final Type t = ((IRClassType) type).getTarget();
@@ -365,7 +415,12 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 						if (t.hasPrototype()
 								&& predicate
 										.isCompatibleWith(MemberPredicates.STATIC)) {
-							typeQuery.add(Types.FUNCTION,
+							Type prototypeType = t.getPrototypeType();
+							if (prototypeType == Types.FUNCTION
+									&& !canInstantiate(t, valueRef)) {
+								prototypeType = Types.OBJECT;
+							}
+							typeQuery.add(prototypeType,
 									MemberPredicates.NON_STATIC);
 						}
 					} else {
@@ -401,13 +456,28 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 											.getName());
 						}
 					});
-				} else {
-					final Type t = TypeUtil.extractType(context, type);
-					if (t != null) {
-						typeQuery.add(t, MemberPredicates.NON_STATIC);
+				} else if (type instanceof IRArrayType) {
+					final IRArrayType arrayType = (IRArrayType) type;
+					typeQuery
+							.add(context.parameterize(Types.ARRAY, Collections
+									.singletonList(arrayType.getItemType())));
+				} else if (type.isJavaScriptObject()) {
+					typeQuery.add(Types.OBJECT, MemberPredicates.NON_STATIC);
+				}
+			}
+		}
+
+		private boolean canInstantiate(Type type, IValueReference ref) {
+			if (extensions != null) {
+				for (IValidatorExtension extension : extensions) {
+					final IValidationStatus status = extension.canInstantiate(
+							type, ref);
+					if (status != null && status != ValidationStatus.OK) {
+						return false;
 					}
 				}
 			}
+			return true;
 		}
 
 		/**
@@ -442,7 +512,7 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 			relevance += computeRelevanceForRestrictions(IAccessRule.K_ACCESSIBLE);
 			proposal.setRelevance(relevance);
 
-			proposal.setCompletion(memberName);
+			proposal.setCompletion(isFunction ? memberName + "()" : memberName);
 			proposal.setName(memberName);
 			proposal.setExtraInfo(member);
 			proposal.setReplaceRange(startPosition - offset, endPosition
@@ -453,14 +523,27 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 				if (paramCount > 0) {
 					final String[] params = new String[paramCount];
 					for (int i = 0; i < paramCount; ++i) {
-						Parameter parameter = method.getParameters().get(i);
-						if (parameter.getKind() == ParameterKind.OPTIONAL) {
-							params[i] = '[' + parameter.getName() + ']';
-						} else {
-							params[i] = parameter.getName();
-						}
+						params[i] = method.getParameters().get(i).getName();
 					}
 					proposal.setParameterNames(params);
+					if (method.getParameters().get(paramCount - 1).getKind() != ParameterKind.NORMAL) {
+						int requiredCount = method.getParameters().size();
+						while (requiredCount > 0
+								&& method.getParameters()
+										.get(requiredCount - 1).getKind() != ParameterKind.NORMAL) {
+							--requiredCount;
+						}
+						if (requiredCount == 0
+								&& method.getParameters().get(requiredCount)
+										.getKind() == ParameterKind.VARARGS) {
+							++requiredCount; // heuristic...
+						}
+						if (requiredCount != paramCount) {
+							proposal.setAttribute(
+									CompletionProposal.ATTR_REQUIRED_PARAM_COUNT,
+									requiredCount);
+						}
+					}
 				}
 			}
 			requestor.accept(proposal);
@@ -489,7 +572,9 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 			relevance += computeRelevanceForRestrictions(IAccessRule.K_ACCESSIBLE);
 			proposal.setRelevance(relevance);
 
-			proposal.setCompletion(reference.getName());
+			proposal.setCompletion(proposalKind == CompletionProposal.METHOD_REF ? reference
+					.getName() + "()"
+					: reference.getName());
 			proposal.setName(reference.getName());
 			proposal.setExtraInfo(reference);
 			proposal.setReplaceRange(startPosition - offset, endPosition
@@ -502,15 +587,28 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 					if (paramCount > 0) {
 						final String[] params = new String[paramCount];
 						for (int i = 0; i < paramCount; ++i) {
-							IRParameter parameter = method.getParameters().get(
-									i);
-							if (parameter.isOptional()) {
-								params[i] = '[' + parameter.getName() + ']';
-							} else {
-								params[i] = parameter.getName();
-							}
+							params[i] = method.getParameters().get(i).getName();
 						}
 						proposal.setParameterNames(params);
+						if (method.getParameters().get(paramCount - 1)
+								.getKind() != ParameterKind.NORMAL) {
+							int requiredCount = method.getParameters().size();
+							while (requiredCount > 0
+									&& method.getParameters()
+											.get(requiredCount - 1).getKind() != ParameterKind.NORMAL) {
+								--requiredCount;
+							}
+							if (requiredCount == 0
+									&& method.getParameters()
+											.get(requiredCount).getKind() == ParameterKind.VARARGS) {
+								++requiredCount; // heuristic...
+							}
+							if (requiredCount != paramCount) {
+								proposal.setAttribute(
+										CompletionProposal.ATTR_REQUIRED_PARAM_COUNT,
+										requiredCount);
+							}
+						}
 					}
 				}
 			}
@@ -543,13 +641,18 @@ public class JavaScriptCompletionEngine2 extends ScriptCompletionEngine
 	 * @param collection
 	 * @param reporter
 	 */
-	private void doGlobalCompletion(ITypeInferenceContext context,
-			IValueCollection collection, Reporter reporter) {
-		reportItems(context, reporter, collection);
+	private void doGlobalCompletion(IValueCollection collection,
+			Reporter reporter) {
+		reportItems(reporter, collection);
 		if (allowGlobals) {
-			doCompletionOnType(context, TypeMode.CODE, reporter);
-			doCompletionOnKeyword(reporter.getPrefix(), reporter.getPosition());
-			reportGlobals(context, reporter);
+			if (!requestor.isIgnored(CompletionProposal.TYPE_REF)) {
+				doCompletionOnType(TypeMode.CODE, reporter);
+			}
+			if (!requestor.isIgnored(CompletionProposal.KEYWORD)) {
+				doCompletionOnKeyword(reporter.getPrefix(),
+						reporter.getPosition());
+			}
+			reportGlobals(reporter);
 		}
 	}
 

@@ -427,8 +427,9 @@ public class TypeInfoValidationTests extends AbstractValidationTest {
 		assertEquals(problems.toString(), 1, problems.size());
 	}
 
-	@Skip
 	public void testLazyVariableWithAssignment() {
+		if (notYetImplemented())
+			return;
 		// TODO uncomment when correct scopes support is implemented
 		StringList code = new StringList();
 		code.add("function Node1() {");
@@ -2501,5 +2502,59 @@ public class TypeInfoValidationTests extends AbstractValidationTest {
 				.getID());
 		assertEquals(JavaScriptProblems.UNDEFINED_PROPERTY, problems.get(4)
 				.getID());
+	}
+
+	public void testMultiDimRecordType() {
+		final StringList code = new StringList();
+		code.add("/**");
+		code.add("*	@param {Object} data");
+		code.add("* @param {Object} options");
+		code.add("* @param {Object} options.backgroundColor");
+		code.add("* @param {String} options.backgroundColor.fill");
+		code.add("*	@param {String} options.backgroundColor.stroke");
+		code.add("*	@param {Number} options.backgroundColor.strokeWidth");
+		code.add("*");
+		code.add("*/");
+		code.add("function draw(data, options) {");
+		code.add("var s = options.backgroundColor.fill;");
+		code.add("s.toUpperCase();");
+		code.add("}");
+		final List<IProblem> problems = validate(code.toString());
+		assertEquals(problems.toString(), 0, problems.size());
+	}
+
+	public void testThisAnnotationError() {
+		final StringList code = new StringList();
+		code.add("/** @this {String} */");
+		code.add("var g = function () {");
+		code.add("this.length; // OK");
+		code.add("this.fixed(); // OK");
+		code.add("this.getDay(); // warning - undefined member");
+		code.add("this.myMethod(); // warning - undefined member");
+		code.add("this.ble; // warning - undefined member");
+		code.add("}");
+		code.add("g.apply('');");
+		final List<IProblem> problems = validate(code.toString());
+		assertEquals(problems.toString(), 3, problems.size());
+		assertEquals(JavaScriptProblems.UNDEFINED_METHOD, problems.get(0)
+				.getID());
+		assertEquals(JavaScriptProblems.UNDEFINED_METHOD, problems.get(1)
+				.getID());
+		assertEquals(JavaScriptProblems.UNDEFINED_PROPERTY, problems.get(2)
+				.getID());
+	}
+
+	public void testThisAnnotationValid() {
+		final StringList code = new StringList();
+		code.add("var g = function () {");
+		code.add("this.length;");
+		code.add("this.fixed();");
+		code.add("this.getDay();");
+		code.add("this.myMethod();");
+		code.add("this.ble;");
+		code.add("}");
+		code.add("g.apply('');");
+		final List<IProblem> problems = validate(code.toString());
+		assertEquals(problems.toString(), 0, problems.size());
 	}
 }

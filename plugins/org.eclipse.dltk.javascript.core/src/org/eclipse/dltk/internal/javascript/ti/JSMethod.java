@@ -35,6 +35,7 @@ import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IMethod;
 import org.eclipse.dltk.javascript.typeinfo.IModelBuilder.IParameter;
 import org.eclipse.dltk.javascript.typeinfo.ReferenceSource;
 import org.eclipse.dltk.javascript.typeinfo.model.JSType;
+import org.eclipse.dltk.javascript.typeinfo.model.ParameterKind;
 import org.eclipse.dltk.javascript.typeinfo.model.Visibility;
 
 @SuppressWarnings("serial")
@@ -47,6 +48,7 @@ public class JSMethod extends ArrayList<IParameter> implements IMethod {
 	private boolean constructor;
 	private ReferenceLocation location = ReferenceLocation.UNKNOWN;
 	private ISourceRange docRange;
+	private JSType thisType;
 
 	public IParameter createParameter() {
 		return new Parameter();
@@ -127,12 +129,24 @@ public class JSMethod extends ArrayList<IParameter> implements IMethod {
 		this.docRange = docRange;
 	}
 
+	public JSType getThisType() {
+		return this.thisType;
+	}
+
+	public void setThisType(JSType thisType) {
+		this.thisType = thisType;
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append(name);
 		sb.append('(');
 		boolean first = true;
+		if (thisType != null) {
+			sb.append("this:").append(thisType);
+			first = false;
+		}
 		for (IParameter parameter : this) {
 			if (!first) {
 				sb.append(',');
@@ -231,23 +245,22 @@ public class JSMethod extends ArrayList<IParameter> implements IMethod {
 
 	public static class Parameter extends JSElement implements IParameter {
 
-		private boolean optional;
-		private boolean varargs;
-
-		public void setOptional(boolean b) {
-			optional = b;
-		}
+		private ParameterKind kind = ParameterKind.NORMAL;
 
 		public boolean isOptional() {
-			return optional;
-		}
-
-		public void setVarargs(boolean varargs) {
-			this.varargs = varargs;
+			return kind == ParameterKind.OPTIONAL;
 		}
 
 		public boolean isVarargs() {
-			return varargs;
+			return kind == ParameterKind.VARARGS;
+		}
+
+		public ParameterKind getKind() {
+			return kind;
+		}
+
+		public void setKind(ParameterKind kind) {
+			this.kind = kind;
 		}
 
 		@Override

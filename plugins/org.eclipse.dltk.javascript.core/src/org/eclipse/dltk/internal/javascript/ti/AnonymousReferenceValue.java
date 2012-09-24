@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 NumberFour AG
+ * Copyright (c) 2012 NumberFour AG
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -9,23 +9,17 @@
  * Contributors:
  *     NumberFour AG - initial API and Implementation (Alex Panchenko)
  *******************************************************************************/
-package org.eclipse.dltk.javascript.typeinfo;
+package org.eclipse.dltk.internal.javascript.ti;
 
-import org.eclipse.dltk.javascript.typeinfo.model.Type;
+/**
+ * Subclass of {@link AnonymousValue} having {@link #isReference()} method
+ * always returning true.
+ */
+public class AnonymousReferenceValue extends AnonymousValue {
 
-public interface IRClassType extends IRType {
-
-	Type getTarget();
-
-	/**
-	 * Returns the item of this class.
-	 */
-	IRType toItemType();
-
-	/**
-	 * Returns the item type when <code>new</code> operator is applied to this
-	 * class.
-	 */
-	IRType newItemType();
+	@Override
+	public boolean isReference() {
+		return true;
+	}
 
 }
